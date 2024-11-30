@@ -7,12 +7,22 @@ import DeleteConfirmation from './components/DeleteConfirmation.jsx';
 import logoImg from './assets/logo.png';
 import { sortPlacesByDistance } from './loc.js'
 
-function App() {
-  const modal = useRef();
-  const selectedPlace = useRef();
-  const [availablePlaces, setAvailablePlaces] = useState([]);
-  const [pickedPlaces, setPickedPlaces] = useState([]);
+// this / localstorage code runs synchronously
+// does not need useEffect
+// App comonent doesn't finish execution cycle before
+// localStorage returns data.
+// move out of App so it only runs once
+const storedIds = JSON.parse(localStorage.getItem('selectedPlaces')) || [];
 
+const storedPlaces = storedIds.map((id) => 
+  AVAILABLE_PLACES.find((place) => place.id === id)
+);
+
+function App() {
+  const selectedPlace = useRef();
+  const [modalIsOpen, setModalIsOpen] = useState(false)
+  const [availablePlaces, setAvailablePlaces] = useState([]);
+  const [pickedPlaces, setPickedPlaces] = useState(storedPlaces);
 
   // first arg of useEffect is fx that wraps async fx
   // second arg of useEffect is array of dependencies
@@ -22,7 +32,7 @@ function App() {
   // if dependecy value changes
   // react will never re-excute uE w/o dependecies after
   // first uE execution; if dependencies omitted,
-  // uE will execcute after every component cycle (inf loop)
+  // uE will execute after every component cycle (inf loop)
   useEffect(() => {
   // async function since getting location may take time
   // this code is side effect: need loc but not directly
@@ -41,14 +51,13 @@ function App() {
   });
   }, [] )
   
-
   function handleStartRemovePlace(id) {
-    modal.current.open();
+    setModalIsOpen(true);
     selectedPlace.current = id;
   }
 
   function handleStopRemovePlace() {
-    modal.current.close();
+    setModalIsOpen(false);
   }
 
   function handleSelectPlace(id) {
@@ -59,24 +68,42 @@ function App() {
       const place = AVAILABLE_PLACES.find((place) => place.id === id);
       return [place, ...prevPickedPlaces];
     });
+
+    // storage code is a sideEffect - not directly related to 
+    // rendering JSX code but needed to persist list of saved
+    // places; dont need to wrap with useEffect and
+    // cant add a hook in a nested fx
+    // code does not enter inf loop because state isn't 
+    // being updated and code only executes when 
+    // user clicks and handleSelectPlace() executes
+    const storedIds = JSON.parse(localStorage.getItem('selectedPlaces')) || [];
+    
+    // will return -1 if not found
+    if (storedIds.indexOf(id) === -1){
+      localStorage.setItem('selectedPlaces',
+         // stored data must be in string format
+         JSON.stringify([id, ...storedIds]));
+    }
   }
 
   function handleRemovePlace() {
     setPickedPlaces((prevPickedPlaces) =>
       prevPickedPlaces.filter((place) => place.id !== selectedPlace.current)
     );
-    modal.current.close();
+    setModalIsOpen(false);
+    const storedIds = JSON.parse(localStorage.getItem('selectedPlaces')) || [];
+    localStorage.setItem('selectedPlaces', 
+      JSON.stringify(storedIds.filter((id) => id !== selectedPlace.current)))
   }
 
   return (
     <>
-      <Modal ref={modal}>
+      <Modal open={modalIsOpen}>
         <DeleteConfirmation
           onCancel={handleStopRemovePlace}
           onConfirm={handleRemovePlace}
         />
       </Modal>
-
       <header>
         <img src={logoImg} alt="Stylized globe" />
         <h1>PlacePicker</h1>
@@ -94,7 +121,7 @@ function App() {
         />
         <Places
           title="Available Places"
-          places={AVAILABLE_PLACES}
+          places={availablePlaces}
           fallbackText="Sorting places by distance..."
           onSelectPlace={handleSelectPlace}
         />
