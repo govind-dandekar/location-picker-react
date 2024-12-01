@@ -17,7 +17,6 @@ function Modal({ open, children, onClose }) {
     }
   }, [open])
   
-
   return createPortal(
     <dialog 
       className="modal" 
