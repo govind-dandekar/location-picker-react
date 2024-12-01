@@ -86,8 +86,11 @@ function App() {
     }
   }
 
-  useCallback(
-    function handleRemovePlace() {
+  // wrapped fx will not be recreated every time App renders
+  // fx stored in memory and React reuses stored fx
+  // should use useCallback when passing fx as useEffect dependencies
+  // prop or state values in fx should be added as dependency
+  const handleRemovePlace = useCallback(function handleRemovePlace() {
       setPickedPlaces((prevPickedPlaces) =>
         prevPickedPlaces.filter((place) => place.id !== selectedPlace.current)
       );
@@ -95,8 +98,7 @@ function App() {
       const storedIds = JSON.parse(localStorage.getItem('selectedPlaces')) || [];
       localStorage.setItem('selectedPlaces', 
         JSON.stringify(storedIds.filter((id) => id !== selectedPlace.current)))
-    }
-  );
+    }, []);
   
 
   return (
